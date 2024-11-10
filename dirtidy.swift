@@ -27,7 +27,7 @@ func groupFilesByExtension(_ fileURLs: [URL]) -> [String: [URL]] {
 }
 
 func sortFilesInGroups(_ fileGroups: [String: [URL]]) -> [String: [URL]] {
-    return fileGroups.mapValues { $0.sorted { $0.lastPathComponent < $1.lastPathComponent } }
+    fileGroups.mapValues { $0.sorted { $0.lastPathComponent < $1.lastPathComponent } }
 }
 
 func printFilesByExtension(_ fileGroups: [String: [URL]]) {
