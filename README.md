@@ -26,9 +26,6 @@ No Extension:
 md:
 - README.md
 
-sh:
-- build.sh
-
 swift:
 - dirtidy.swift
 ```
