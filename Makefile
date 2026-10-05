@@ -4,6 +4,7 @@ EXECUTABLES := $(SWIFT_FILES:.swift=)
 SWIFTC := swiftc
 LIPO := lipo
 STRIP := strip
+CODESIGN := codesign
 
 SWIFT_FLAGS := -O -whole-module-optimization
 X86_64_TARGET := x86_64-apple-macosx10.15
@@ -21,8 +22,9 @@ ifeq ($(UNAME_S),Darwin)
 	$(SWIFTC) $(SWIFT_FLAGS) -target $(ARM64_TARGET) -o $@_arm64 $<
 	$(LIPO) -create -output $@_unstripped $@_x86_64 $@_arm64
 	$(STRIP) -o $@ $@_unstripped
+	$(CODESIGN) -f -s - $@
 	rm $@_x86_64 $@_arm64 $@_unstripped
-	@echo "Built and stripped universal binary: $@"
+	@echo "Built, stripped, and signed universal binary: $@"
 else
 %: %.swift
 	$(SWIFTC) $(SWIFT_FLAGS) -o $@ $<
