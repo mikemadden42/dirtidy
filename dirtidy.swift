@@ -9,7 +9,11 @@ func getFileURLs(from directoryURL: URL, includeHiddenFiles: Bool = false) throw
     do {
         let options: FileManager.DirectoryEnumerationOptions = includeHiddenFiles ? [] : .skipsHiddenFiles
         let fileURLs = try FileManager.default.contentsOfDirectory(at: directoryURL, includingPropertiesForKeys: nil, options: options)
-        return fileURLs.filter { !$0.hasDirectoryPath }
+        // Resolve symlinks so links to directories are skipped like directories
+        return fileURLs.filter { fileURL in
+            let resourceValues = try? fileURL.resolvingSymlinksInPath().resourceValues(forKeys: [.isDirectoryKey])
+            return resourceValues?.isDirectory != true
+        }
     } catch {
         throw FileError.directoryNotFound
     }
@@ -31,23 +35,27 @@ func sortFilesInGroups(_ fileGroups: [String: [URL]]) -> [String: [URL]] {
 }
 
 func printFilesByExtension(_ fileGroups: [String: [URL]]) {
-    for (fileExtension, files) in fileGroups.sorted(by: { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }) {
-        print("\n\(fileExtension):")
-        for fileURL in files {
-            print(fileURL.lastPathComponent)
+    // Files without an extension are listed first, then extensions alphabetically
+    let sortedGroups = fileGroups.sorted { lhs, rhs in
+        if lhs.key.isEmpty != rhs.key.isEmpty {
+            return lhs.key.isEmpty
         }
+        return lhs.key.localizedCaseInsensitiveCompare(rhs.key) == .orderedAscending
+    }
+
+    for (fileExtension, files) in sortedGroups {
+        print("\(fileExtension.isEmpty ? "No Extension" : fileExtension):")
+        for fileURL in files {
+            print("- \(fileURL.lastPathComponent)")
+        }
+        print()
     }
 }
 
-// Check if a command-line argument for the directory path is provided
-guard CommandLine.arguments.count > 1 else {
-    print("Usage: \(CommandLine.arguments[0]) <directory path> [-h]")
-    exit(1)
-}
-
-// Get the directory path from the command-line arguments
-let directoryPath = CommandLine.arguments[1]
-let includeHiddenFiles = CommandLine.arguments.contains("-h")
+// Get the directory path from the command-line arguments, defaulting to the current directory
+let arguments = CommandLine.arguments.dropFirst()
+let directoryPath = arguments.first { $0 != "-h" } ?? "."
+let includeHiddenFiles = arguments.contains("-h")
 
 do {
     guard let directoryURL = URL(string: directoryPath) else {
