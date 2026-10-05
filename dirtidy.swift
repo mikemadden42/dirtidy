@@ -1,21 +1,44 @@
 import Foundation
 
-enum FileError: Error {
-    case directoryNotFound
-    case fileEnumerationFailed
+enum FileError: Error, CustomStringConvertible {
+    case pathNotFound(String)
+    case notADirectory(String)
+    case readFailed(String)
+
+    var description: String {
+        switch self {
+        case let .pathNotFound(path):
+            "Error: path does not exist: \(path)"
+        case let .notADirectory(path):
+            "Error: not a directory: \(path)"
+        case let .readFailed(reason):
+            "Error reading directory: \(reason)"
+        }
+    }
 }
 
-func getFileURLs(from directoryURL: URL, includeHiddenFiles: Bool = false) throws -> [URL] {
+func getFileURLs(atPath directoryPath: String, includeHiddenFiles: Bool = false) throws -> [URL] {
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: directoryPath, isDirectory: &isDirectory) else {
+        throw FileError.pathNotFound(directoryPath)
+    }
+    guard isDirectory.boolValue else {
+        throw FileError.notADirectory(directoryPath)
+    }
+
+    let directoryURL = URL(fileURLWithPath: directoryPath, isDirectory: true)
+    let options: FileManager.DirectoryEnumerationOptions = includeHiddenFiles ? [] : .skipsHiddenFiles
+    let fileURLs: [URL]
     do {
-        let options: FileManager.DirectoryEnumerationOptions = includeHiddenFiles ? [] : .skipsHiddenFiles
-        let fileURLs = try FileManager.default.contentsOfDirectory(at: directoryURL, includingPropertiesForKeys: nil, options: options)
-        // Resolve symlinks so links to directories are skipped like directories
-        return fileURLs.filter { fileURL in
-            let resourceValues = try? fileURL.resolvingSymlinksInPath().resourceValues(forKeys: [.isDirectoryKey])
-            return resourceValues?.isDirectory != true
-        }
+        fileURLs = try FileManager.default.contentsOfDirectory(at: directoryURL, includingPropertiesForKeys: nil, options: options)
     } catch {
-        throw FileError.directoryNotFound
+        throw FileError.readFailed(error.localizedDescription)
+    }
+
+    // Resolve symlinks so links to directories are skipped like directories
+    return fileURLs.filter { fileURL in
+        let resourceValues = try? fileURL.resolvingSymlinksInPath().resourceValues(forKeys: [.isDirectoryKey])
+        return resourceValues?.isDirectory != true
     }
 }
 
@@ -90,14 +113,11 @@ for argument in CommandLine.arguments.dropFirst() {
 }
 
 do {
-    guard let directoryURL = URL(string: directoryPath ?? ".") else {
-        throw FileError.directoryNotFound
-    }
-
-    let fileURLs = try getFileURLs(from: directoryURL, includeHiddenFiles: includeHiddenFiles)
+    let fileURLs = try getFileURLs(atPath: directoryPath ?? ".", includeHiddenFiles: includeHiddenFiles)
     let fileGroups = groupFilesByExtension(fileURLs)
     let sortedFileGroups = sortFilesInGroups(fileGroups)
     printFilesByExtension(sortedFileGroups)
 } catch {
-    print("Error: \(error)")
+    printError("\(error)")
+    exit(1)
 }
