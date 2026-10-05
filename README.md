@@ -43,5 +43,6 @@ make        # build ./dirtidy
 make clean  # remove the binary
 ```
 
-On macOS, `make` builds a stripped universal binary (x86_64 and arm64). On
-Linux, it builds a stripped native binary.
+On macOS, `make` builds a stripped, ad-hoc signed universal binary (x86_64 for
+macOS 10.15+, arm64 for macOS 11+). On Linux, it builds a stripped native
+binary.
